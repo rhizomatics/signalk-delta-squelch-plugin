@@ -38,8 +38,8 @@
     "test:coverage": "node --experimental-test-coverage --test-coverage-include=\"lib/**/*.js\" --test-coverage-lines=90 --test-coverage-branches=85 --test-coverage-functions=90 --test"
   },
   "devDependencies": {
-    "oxfmt": "^0.71.0",
-    "oxlint": "^1.86.0",
+    "oxfmt": "^0.72.0",
+    "oxlint": "^1.87.0",
     "oxlint-tsgolint": "^7.0.2003"
   },
   "engines": {
