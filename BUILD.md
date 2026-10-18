@@ -1,4 +1,4 @@
-# signalk-einklabel-plugin Development
+# signalk-delta-squelch-plugin Development
 
 ## Release
 
