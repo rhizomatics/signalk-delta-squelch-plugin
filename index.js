@@ -8,7 +8,7 @@ module.exports = function (app) {
     name: "Delta Squelch",
     description:
       "Rounds noisy SignalK values (position, temperature, velocity, heading, height, voltage, pressure, humidity) to their sensor's real precision, " +
-      "squelches repeated text/boolean values (notification, state, switch paths), and drops deltas that don't change — cutting delta volume at the " +
+      "squelches repeated text/boolean values (state and switch paths), and drops deltas that don't change — cutting delta volume at the " +
       "source, for every consumer, not just one subscriber.",
   };
 
@@ -29,7 +29,7 @@ module.exports = function (app) {
         type: "integer",
         title: "Unchanging value threshold (text/boolean paths)",
         description:
-          "Text and boolean values (notification/state/switch paths, etc.) have no rounding resolution, so they're squelched by exact-value repetition instead: this many consecutive identical readings must be seen before further repeats are dropped. Earlier repeats, and the heartbeat above, are always forwarded.",
+          "Text and boolean values (state/switch paths, etc.) have no rounding resolution, so they're squelched by exact-value repetition instead: this many consecutive identical readings must be seen before further repeats are dropped. Earlier repeats, and the heartbeat above, are always forwarded.",
         default: 10,
         minimum: 1,
       },
@@ -153,9 +153,8 @@ module.exports = function (app) {
     statsTimer.unref?.();
 
     app.registerDeltaInputHandler((delta, next) => {
-      // Once stopped, `filter` is cleared but the server API gives plugins no
-      // way to unregister a delta input handler, so this closure keeps
-      // running — pass everything through untouched rather than crash.
+      // The server unregisters this handler when the plugin stops, so this
+      // guard only covers a delta already in flight during stop().
       if (!filter || !delta.updates) return next(delta);
 
       const isSelf = delta.context === app.selfContext;
