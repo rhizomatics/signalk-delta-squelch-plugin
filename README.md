@@ -40,8 +40,8 @@ or forwards it to anyone. For each value on a recognised path, it:
    accuracy (configurable per category, or per path).
 2. **Removes** updates that don't move past that resolution, so consumers
    see clean, sensible numbers arriving only when something actually changed.
-3. **Squelches unchanging text/boolean values** — notification, state, and
-   switch paths — once the same value has been seen for a configurable
+3. **Squelches unchanging text/boolean values** — state and switch
+   paths — once the same value has been seen for a configurable
    number of consecutive readings in a row (10 by default).
 4. Forwards a **heartbeat** at a configurable interval even with no
    change, so nothing downstream mistakes a quiet source for a dead one.
@@ -74,8 +74,8 @@ For older GPS antenna, without modern L5 and SBAS for high resolution, `0.00001`
 
 ### Text and boolean values
 
-Paths whose value is a string or boolean (notification states, autopilot
-state, switch positions, ...) have no physical resolution to round to, so
+Paths whose value is a string or boolean (autopilot state, switch
+positions, ...) have no physical resolution to round to, so
 they're squelched by exact-value repetition instead: a value is only dropped
 once it's been seen unchanged for `unchangingCountThreshold` consecutive
 readings in a row (10 by default). Earlier repeats, any change of value, and
@@ -119,6 +119,23 @@ context (`self` for the vessel's own position), path, and source together,
 along with the two positions, the time elapsed between them, and the
 distance and implied speed that triggered the rejection — enough to tell
 which device is actually the noisy one.
+
+Notifications (`notifications.*`) are objects, not strings, so they always
+pass through untouched.
+
+### Source priorities
+
+SignalK applies your source priorities _after_ this plugin. A lower-priority
+source takes over a path once the preferred source has been silent for that
+source's timeout (15 seconds by default for a ranked source, 10 seconds for an
+unranked one). A squelched value counts as silence, so with the default
+60 second heartbeat a steady preferred GNSS, for example at anchor, can lose
+`navigation.position` to the backup source between heartbeats, and the boat
+appears to jump between the two.
+
+If you have priorities set for a path, give that path a heartbeat override
+shorter than the timeout of its lower-priority sources, less one sample
+interval (e.g. 10 seconds against the 15 second default for a 1Hz source).
 
 ## Configuration
 
