@@ -1,6 +1,15 @@
 {
   "$schema": "./node_modules/oxlint/configuration_schema.json",
-  "ignorePatterns": ["**/*.test.ts", "**/*.test.js", "dist/**", "node_modules/**", "coverage/**", "package-lock.json", "*.min.js"],
+  "ignorePatterns": [
+    "**/*.test.ts",
+    "**/*.test.js",
+    "dist/**",
+    "node_modules/**",
+    "site/**",
+    "coverage/**",
+    "package-lock.json",
+    "*.min.js"
+  ],
 
   "plugins": ["typescript", "unicorn", "oxc", "import"],
   "categories": {
