@@ -1,0 +1,9 @@
+# build output
+dist/
+# generated types
+.astro/
+# generated from ../README.md by scripts/sync-docs.mjs
+src/content/docs/index.md
+# dependencies
+node_modules/
+.DS_Store
