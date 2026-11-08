@@ -2,6 +2,15 @@
 
 All notable changes to this plugin are documented here. Format loosely follows [Keep a Changelog](https://keepachangelog.com/).
 
+## [0.5.0]
+
+- Paths fed by more than one `$source` automatically get a shorter heartbeat, so a steady preferred source isn't mistaken for a silent one by SignalK's source priorities and the path doesn't flap between sources
+  - Defaults to 10 seconds, configurable as `multiSourceHeartbeatSeconds`
+  - A per-path heartbeat override still wins
+  - A path drops back to the normal heartbeat once its other sources have been silent for 10 heartbeats
+- Squelch state is now pruned for any context/path/source not seen for 10 of its heartbeat intervals, so memory no longer grows with every AIS target seen since restart
+- Hourly debug summary includes the number of path/source keys being tracked
+
 ## [0.4.6]
 
 - Correct missing changed from 0.4.5

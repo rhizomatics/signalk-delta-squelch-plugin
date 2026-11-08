@@ -50,7 +50,7 @@ the [SignalK server-api docs](https://demo.signalk.org/documentation/develop/plu
 
 ### `lib/filter.js` — `SquelchFilter`
 
-The stateful core. One instance per plugin `start()`, holding three maps keyed by
+The stateful core. One instance per plugin `start()`, holding four maps keyed by
 `` `${context}:${path}:${source}` `` (`source` being the delta update's `$source`) — this plugin runs
 upstream of the server's own source-priority resolution, so a path fed by more than one device is
 seen here as each source's raw, independently-noisy stream, interleaved. Keying state per-source
@@ -66,6 +66,17 @@ happened to report last:
   _real_ jump (e.g. after a GPS dropout) can still be confirmed and accepted after enough
   consecutive samples agree, rather than freezing the position forever.
 - `unchangingCount` — text/boolean-only, counts consecutive identical readings so far.
+- `lastSeen` — when each key was last processed and its prune TTL (`PRUNE_AFTER_HEARTBEATS` × its
+  effective heartbeat). `prune()` runs lazily from `process()` at most once per default heartbeat
+  and drops a stale key from all four maps, so AIS targets that have left range don't accumulate.
+
+Separately, `pathSources` maps `` `${context}:${path}` `` → source → last-seen time. When a path has
+more than one live source, `_heartbeatMs(path, true)` substitutes `multiSourceHeartbeatSeconds`
+(default 10s, capped at the global default; a per-path `heartbeatSeconds` override always wins).
+SignalK applies source priorities _after_ this handler and treats a squelched value as silence, so a
+60s heartbeat would let a steady preferred source lose the path to a backup after its 15s timeout.
+Sources are forgotten after `PRUNE_AFTER_HEARTBEATS` default heartbeats — deliberately the longer
+window, since staying on the short heartbeat too long only costs extra deltas.
 
 `resolveConfig(path)` resolves category + resolution once per path: an explicit entry in the
 `paths` config array wins, else `categorize()`'s auto-detected category and its default resolution,

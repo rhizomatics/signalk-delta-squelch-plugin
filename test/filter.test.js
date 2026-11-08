@@ -338,6 +338,149 @@ describe("SquelchFilter — per-source state isolation", () => {
   });
 });
 
+describe("SquelchFilter — multi-source heartbeat", () => {
+  const PATH = "environment.water.temperature";
+
+  test("a single-source path uses the default 60s heartbeat", () => {
+    const clock = makeClock(0);
+    const filter = new SquelchFilter({}, clock);
+    filter.process("vessels.self", PATH, 288.0, true, "gps.a");
+    clock.advance(11000);
+    assert.equal(filter.process("vessels.self", PATH, 288.0, true, "gps.a").keep, false);
+  });
+
+  test("once a second source is seen, each source gets the 10s multi-source heartbeat", () => {
+    const clock = makeClock(0);
+    const filter = new SquelchFilter({}, clock);
+    filter.process("vessels.self", PATH, 288.0, true, "gps.a");
+    filter.process("vessels.self", PATH, 288.0, true, "gps.b");
+    clock.advance(9000);
+    assert.equal(filter.process("vessels.self", PATH, 288.0, true, "gps.a").keep, false);
+    clock.advance(2000); // 11s since gps.a's last forward
+    assert.equal(filter.process("vessels.self", PATH, 288.0, true, "gps.a").keep, true);
+    assert.equal(filter.process("vessels.self", PATH, 288.0, true, "gps.b").keep, true);
+  });
+
+  test("applies to text/boolean paths too", () => {
+    const clock = makeClock(0);
+    const filter = new SquelchFilter({ unchangingCountThreshold: 1 }, clock);
+    filter.process("vessels.self", "steering.autopilot.state", "auto", true, "ap.a");
+    filter.process("vessels.self", "steering.autopilot.state", "auto", true, "ap.b");
+    clock.advance(11000);
+    assert.equal(filter.process("vessels.self", "steering.autopilot.state", "auto", true, "ap.a").keep, true);
+  });
+
+  test("is scoped per context — another vessel's sources don't affect ours", () => {
+    const clock = makeClock(0);
+    const filter = new SquelchFilter({}, clock);
+    filter.process("vessels.self", PATH, 288.0, true, "gps.a");
+    filter.process("vessels.urn:mrn:imo:mmsi:123456789", PATH, 288.0, false, "ais");
+    clock.advance(11000);
+    assert.equal(filter.process("vessels.self", PATH, 288.0, true, "gps.a").keep, false);
+  });
+
+  test("multiSourceHeartbeatSeconds is configurable", () => {
+    const clock = makeClock(0);
+    const filter = new SquelchFilter({ multiSourceHeartbeatSeconds: 5 }, clock);
+    filter.process("vessels.self", PATH, 288.0, true, "gps.a");
+    filter.process("vessels.self", PATH, 288.0, true, "gps.b");
+    clock.advance(6000);
+    assert.equal(filter.process("vessels.self", PATH, 288.0, true, "gps.a").keep, true);
+  });
+
+  test("never lengthens a global heartbeat that's already shorter", () => {
+    const clock = makeClock(0);
+    const filter = new SquelchFilter({ heartbeatSeconds: 3 }, clock);
+    filter.process("vessels.self", PATH, 288.0, true, "gps.a");
+    filter.process("vessels.self", PATH, 288.0, true, "gps.b");
+    clock.advance(4000);
+    assert.equal(filter.process("vessels.self", PATH, 288.0, true, "gps.a").keep, true);
+  });
+
+  test("a per-path heartbeat override wins over the multi-source heartbeat", () => {
+    const clock = makeClock(0);
+    const filter = new SquelchFilter({ paths: [{ path: PATH, heartbeatSeconds: 30 }] }, clock);
+    filter.process("vessels.self", PATH, 288.0, true, "gps.a");
+    filter.process("vessels.self", PATH, 288.0, true, "gps.b");
+    clock.advance(11000);
+    assert.equal(filter.process("vessels.self", PATH, 288.0, true, "gps.a").keep, false);
+  });
+
+  test("drops back to the default heartbeat once the second source has gone away", () => {
+    const clock = makeClock(0);
+    const filter = new SquelchFilter({}, clock);
+    filter.process("vessels.self", PATH, 288.0, true, "gps.a");
+    filter.process("vessels.self", PATH, 288.0, true, "gps.b");
+    // gps.a keeps reporting; gps.b falls silent for 10 default heartbeats
+    for (let i = 0; i < 60; i++) {
+      clock.advance(10000);
+      filter.process("vessels.self", PATH, 288.0, true, "gps.a");
+    }
+    clock.advance(11000);
+    assert.equal(filter.process("vessels.self", PATH, 288.0, true, "gps.a").keep, false);
+  });
+});
+
+describe("SquelchFilter — state pruning", () => {
+  const AIS = (n) => `vessels.urn:mrn:imo:mmsi:${n}`;
+
+  test("drops state for keys not seen for 10 heartbeats", () => {
+    const clock = makeClock(0);
+    const filter = new SquelchFilter({}, clock);
+    for (let n = 0; n < 100; n++) filter.process(AIS(n), "navigation.speedOverGround", 3.2, false, "ais");
+    assert.equal(filter.trackedKeys, 100);
+    clock.advance(10 * 60 * 1000);
+    filter.process("vessels.self", "navigation.speedOverGround", 3.2, true, "gps");
+    assert.equal(filter.trackedKeys, 1);
+    assert.equal(filter.lastAccepted.size, 1);
+    assert.equal(filter.pathSources.size, 1);
+  });
+
+  test("keeps state for keys still being seen", () => {
+    const clock = makeClock(0);
+    const filter = new SquelchFilter({}, clock);
+    for (let i = 0; i < 20; i++) {
+      filter.process(AIS(1), "navigation.speedOverGround", 3.2, false, "ais");
+      clock.advance(60000);
+    }
+    assert.equal(filter.trackedKeys, 1);
+  });
+
+  test("does not track state for paths it leaves untouched", () => {
+    const filter = new SquelchFilter();
+    filter.process("vessels.self", "electrical.batteries.house.stateOfCharge", 0.87, true, "bms");
+    filter.process("vessels.self", "navigation.position", null, true, "gps");
+    assert.deepEqual(filter.process("vessels.self", "environment.water.temperature", NaN, true, "probe"), { keep: true, value: NaN });
+    assert.equal(filter.trackedKeys, 0);
+    assert.equal(filter.pathSources.size, 0);
+  });
+
+  test("a pruned key's next reading is forwarded as a first reading", () => {
+    const clock = makeClock(0);
+    const filter = new SquelchFilter({}, clock);
+    filter.process(AIS(1), "navigation.speedOverGround", 3.2, false, "ais");
+    clock.advance(10 * 60 * 1000);
+    filter.prune();
+    clock.advance(1000);
+    assert.equal(filter.process(AIS(1), "navigation.speedOverGround", 3.2, false, "ais").keep, true);
+  });
+
+  test("clears pending spike and unchanging-count state along with the key", () => {
+    const clock = makeClock(0);
+    const filter = new SquelchFilter({}, clock);
+    filter.process("vessels.self", "navigation.position", { latitude: 55.0, longitude: -5.0 }, true, "gps");
+    clock.advance(1000);
+    filter.process("vessels.self", "navigation.position", { latitude: 56.0, longitude: -5.0 }, true, "gps");
+    filter.process("vessels.self", "steering.autopilot.state", "auto", true, "ap");
+    assert.equal(filter.pendingSpike.size, 1);
+    assert.equal(filter.unchangingCount.size, 1);
+    clock.advance(10 * 60 * 1000);
+    filter.prune();
+    assert.equal(filter.pendingSpike.size, 0);
+    assert.equal(filter.unchangingCount.size, 0);
+  });
+});
+
 describe("SquelchFilter — stats", () => {
   test("starts at zero and is unaffected by kept values", () => {
     const clock = makeClock(0);

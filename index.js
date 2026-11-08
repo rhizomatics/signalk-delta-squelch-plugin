@@ -25,6 +25,17 @@ module.exports = function (app) {
         default: 60,
         minimum: 1,
       },
+      multiSourceHeartbeatSeconds: {
+        type: "number",
+        title: "Multi-source heartbeat interval (seconds)",
+        description:
+          "Used instead of the heartbeat above for any path currently being fed by more than one $source (e.g. two GNSS receivers). " +
+          "SignalK applies source priorities after this plugin and treats a squelched value as silence, so this must be shorter than " +
+          "the timeout of your lower-priority sources (15s by default) or the path will flap between sources. A per-path heartbeat " +
+          "override still wins. Set it to the same as the heartbeat above to turn this off.",
+        default: 10,
+        minimum: 1,
+      },
       unchangingCountThreshold: {
         type: "integer",
         title: "Unchanging value threshold (text/boolean paths)",
@@ -148,7 +159,10 @@ module.exports = function (app) {
     statsTimer = setInterval(() => {
       const { total, suppressed, spikes } = filter.takeStats();
       const pct = total > 0 ? ((suppressed / total) * 100).toFixed(1) : "0.0";
-      app.debug(`squelch: suppressed ${suppressed}/${total} value(s) (${pct}%) in the past hour, ${spikes} rejected GNSS spike(s)`);
+      app.debug(
+        `squelch: suppressed ${suppressed}/${total} value(s) (${pct}%) in the past hour, ${spikes} rejected GNSS spike(s), ` +
+          `tracking ${filter.trackedKeys} path/source key(s)`,
+      );
     }, STATS_INTERVAL_MS);
     statsTimer.unref?.();
 

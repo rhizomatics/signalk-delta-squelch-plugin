@@ -133,15 +133,29 @@ unranked one). A squelched value counts as silence, so with the default
 `navigation.position` to the backup source between heartbeats, and the boat
 appears to jump between the two.
 
-If you have priorities set for a path, give that path a heartbeat override
-shorter than the timeout of its lower-priority sources, less one sample
-interval (e.g. 10 seconds against the 15 second default for a 1Hz source).
+To stop that, any path currently fed by more than one `$source` automatically
+gets a shorter **multi-source heartbeat** (10 seconds by default, under the
+15 second timeout). A path drops back to the normal heartbeat once its other
+sources have been silent for 10 normal heartbeats. If you've changed the
+source timeouts in your priority rules, set the multi-source heartbeat below
+the shortest of them, less one sample interval; a per-path heartbeat override
+always takes precedence.
+
+### Memory use
+
+Squelch state is kept per context, path and source, so every AIS target adds
+entries. State for anything not seen for 10 of its heartbeat intervals is
+dropped, so memory tracks the targets currently in range rather than every
+target seen since the server started. The hourly debug summary reports how
+many path/source keys are being tracked.
 
 ## Configuration
 
 All of the above is configurable from the plugin's config screen:
 
 - **Heartbeat interval** — global default, overridable per path.
+- **Multi-source heartbeat interval** — used for paths fed by more than one
+  source (10s default).
 - **Unchanging value threshold** — global default (10) for how many
   consecutive identical text/boolean readings are forwarded before
   squelching kicks in, overridable per path.
