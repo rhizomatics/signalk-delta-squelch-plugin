@@ -5,7 +5,7 @@
 [![SignalK Plugin CI](https://github.com/rhizomatics/signalk-delta-squelch-plugin/actions/workflows/signalk-ci.yml/badge.svg)](https://github.com/rhizomatics/signalk-delta-squelch-plugin/actions/workflows/signalk-ci.yml)
 ![code style: oxfmt](https://img.shields.io/badge/code_style-oxfmt-blue.svg)
 [![License](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](https://github.com/rhizomatics/signalk-delta-squelch-plugin/blob/main/LICENSE)
-[![boat tech directory](https://boat-tech-directory.rhizomatics.org.uk/images/badge.svg)](https://boat-tech-directory.rhizomatics.org.uk) [![managed by hq](https://raw.githubusercontent.com/rhizomatics/hq/main/assets/badge-managed-by-hq.svg)](https://github.com/rhizomatics/hq)
+[![boat tech directory](https://boat-tech-directory.rhizomatics.org.uk/images/badge.svg)](https://boat-tech-directory.rhizomatics.org.uk) [![managed by hq](https://raw.githubusercontent.com/rhizomatics/hq/main/assets/badge-managed-by-hq.svg)](https://hq.rhizomatics.org.uk/)
 
 Cuts noisy, redundant SignalK deltas at the source, before they reach the full
 data model, other plugins, or connected clients. Reduce size of stored data both by removing pointless changes, and better efficiency for analytic column-store databases.
