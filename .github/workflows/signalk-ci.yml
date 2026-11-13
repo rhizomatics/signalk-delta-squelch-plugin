@@ -36,3 +36,20 @@ jobs:
         with:
           files: coverage/lcov.info
           token: ${{ secrets.CODECOV_TOKEN }}
+
+  # The upstream "CI Status" job only fails on an explicit `failure`, so a
+  # matrix job that was cancelled (e.g. never got a runner) still reads as
+  # passing. This gate is green only when every planned job succeeded.
+  ci-ok:
+    name: CI OK
+    runs-on: ubuntu-latest
+    if: always()
+    needs: [test, coverage]
+    steps:
+      - name: Require every job to have succeeded
+        env:
+          RESULTS: ${{ toJSON(needs) }}
+        run: |
+          echo "$RESULTS" | jq -r 'to_entries[] | "\(.key): \(.value.result)"'
+          echo "$RESULTS" | jq -e 'all(.[]; .result == "success")' > /dev/null \
+            || { echo "::error::Not all CI jobs succeeded"; exit 1; }
