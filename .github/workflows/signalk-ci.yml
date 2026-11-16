@@ -16,27 +16,6 @@ jobs:
       coverage-command: npm run test:coverage
       format-check-command: npm run fmt:check
 
-  # Separate from the `test` matrix above (which only persists coverage/ as a
-  # short-lived build artifact) - uploads the same lcov report to Codecov so the
-  # README's coverage badge has a live percentage to read.
-  coverage:
-    name: Upload coverage to Codecov
-    runs-on: ubuntu-latest
-    permissions:
-      contents: read
-    steps:
-      - uses: actions/checkout@v7
-      - uses: actions/setup-node@v7
-        with:
-          node-version: "22"
-          cache: npm
-      - run: npm ci
-      - run: npm run test:coverage
-      - uses: codecov/codecov-action@v7
-        with:
-          files: coverage/lcov.info
-          token: ${{ secrets.CODECOV_TOKEN }}
-
   # The upstream "CI Status" job only fails on an explicit `failure`, so a
   # matrix job that was cancelled (e.g. never got a runner) still reads as
   # passing. This gate is green only when every planned job succeeded.
