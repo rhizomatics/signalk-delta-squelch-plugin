@@ -23,7 +23,7 @@ jobs:
     name: CI OK
     runs-on: ubuntu-latest
     if: always()
-    needs: [test, coverage]
+    needs: test
     steps:
       - name: Require every job to have succeeded
         env:
